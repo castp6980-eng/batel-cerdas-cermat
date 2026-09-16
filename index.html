@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kuis IPA</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600&display=swap" rel="stylesheet">
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    :root {
+      --c1:#00fff0; --c2:#ff00aa; --c3:#ffe600;
+      --ca:#00ff88; --cb:#ff6b35; --bg:#050510;
+    }
+    body {
+      background:var(--bg); color:#fff;
+      font-family:Rajdhani,sans-serif;
+      height:100vh; overflow:hidden;
+      display:flex; flex-direction:column;
+    }
+    body::after {
+      content:""; position:fixed; inset:0;
+      background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,255,240,.01) 2px,rgba(0,255,240,.01) 4px);
+      pointer-events:none; z-index:998;
+    }
+    .row-top {
+      flex:1.2; position:relative;
+      border-bottom:2px solid rgba(0,255,240,.25);
+      overflow:hidden; display:flex; flex-direction:column;
+      align-items:center; justify-content:center;
+      padding:.8rem 2.5rem; gap:.6rem; transition:background .8s;
+    }
+    .row-bottom { flex:1; display:flex; }
+    .panel-left {
+      flex:1; position:relative;
+      border-right:2px solid rgba(0,255,240,.25);
+      overflow:hidden; display:flex; flex-direction:column;
+      align-items:center; justify-content:center;
+      padding:1rem 1.2rem; gap:.7rem;
+    }
+    .panel-right {
+      flex:1; position:relative; overflow:hidden;
+      display:flex; flex-direction:column;
+      align-items:center; justify-content:center;
+      padding:1rem 1.2rem; gap:.7rem;
+    }
+    canvas { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:0; }
+    .row-top::before {
+      content:""; position:absolute; inset:0;
+      background:radial-gradient(ellipse at 50% 50%,rgba(0,255,240,.04),transparent 70%);
+      pointer-events:none; z-index:0;
+    }
+    .panel-left::before {
+      content:""; position:absolute; inset:0;
+      background:radial-gradient(ellipse at 40% 50%,rgba(0,255,136,.06),transparent 70%);
+      pointer-events:none; z-index:0;
+    }
+    .panel-right::before {
+      content:""; position:absolute; inset:0;
+      background:radial-gradient(ellipse at 60% 50%,rgba(255,107,53,.06),transparent 70%);
+      pointer-events:none; z-index:0;
+    }
+    .corner { position:absolute; width:14px; height:14px; z-index:10; }
+    .corner.tl { top:7px;    left:7px;  border-top:1px solid var(--c1); border-left:1px solid var(--c1); }
+    .corner.tr { top:7px;   right:7px;  border-top:1px solid var(--c1); border-right:1px solid var(--c1); }
+    .corner.bl { bottom:7px; left:7px;  border-bottom:1px solid var(--c1); border-left:1px solid var(--c1); }
+    .corner.br { bottom:7px;right:7px;  border-bottom:1px solid var(--c1); border-right:1px solid var(--c1); }
+    .panel-label {
+      position:absolute; top:.7rem; left:1rem;
+      font-family:Orbitron,monospace; font-size:.5rem;
+      letter-spacing:.4em; color:rgba(0,255,240,.3); z-index:10; text-transform:uppercase;
+    }
+    .panel-label span { color:var(--c2); }
+    .scan-line {
+      position:absolute; left:0; right:0; height:1px;
+      background:linear-gradient(90deg,transparent,var(--c1),transparent);
+      animation:scan 6s linear infinite; opacity:.2; z-index:1;
+    }
+    @keyframes scan { from{top:-1px} to{top:100%} }
+    .q-num { font-family:Orbitron,monospace; font-size:.6rem; letter-spacing:.5em; color:rgba(0,255,240,.4); z-index:2; }
+    .q-body {
+      display:flex; align-items:center; justify-content:center;
+      gap:1.5rem; z-index:2; width:100%; max-width:900px; flex-wrap:wrap;
+    }
+    .q-image {
+      max-height:100px; max-width:160px; object-fit:contain;
+      border:1px solid rgba(0,255,240,.25); background:rgba(0,0,0,.5); padding:4px;
+    }
+    .q-text {
+      font-family:Orbitron,monospace; font-size:clamp(.85rem,1.8vw,1.3rem);
+      font-weight:700; text-align:center; line-height:1.5; color:#fff;
+      text-shadow:0 0 20px rgba(0,255,240,.3); flex:1; min-width:200px;
+    }
+    .options-grid { display:grid; grid-template-columns:1fr 1fr; gap:.5rem; width:100%; max-width:860px; z-index:2; }
+    .option-display {
+      font-family:Rajdhani,sans-serif; font-size:clamp(.8rem,1.3vw,1rem);
+      padding:.45rem .9rem; background:rgba(0,255,240,.04);
+      border:1px solid rgba(0,255,240,.15); color:rgba(255,255,255,.75);
+      line-height:1.3; transition:all .3s;
+    }
+    .option-display .opt-key { font-family:Orbitron,monospace; color:var(--c1); font-size:.8em; margin-right:.4rem; }
+    .option-display.correct-ans { border-color:#00ff88; background:rgba(0,255,136,.12); color:#00ff88; }
+    .option-display.wrong-ans   { border-color:rgba(255,68,68,.3); color:rgba(255,68,68,.4); }
+    .feedback { font-family:Orbitron,monospace; font-size:.7rem; letter-spacing:.15em; min-height:1.4rem; text-align:center; z-index:2; }
+    .feedback.correct { color:#00ff88; text-shadow:0 0 10px #00ff88; }
+    .feedback.wrong   { color:#ff4444; text-shadow:0 0 10px #ff4444; }
+    .top-controls { display:flex; gap:.8rem; z-index:2; }
+    .btn {
+      font-family:Orbitron,monospace; font-size:.6rem; letter-spacing:.2em;
+      padding:.5rem 1.2rem; border:1px solid; cursor:pointer;
+      position:relative; overflow:hidden; text-transform:uppercase;
+      background:transparent; transition:color .3s;
+    }
+    .btn::before { content:""; position:absolute; inset:0; transform:scaleX(0); transform-origin:left; transition:transform .3s; }
+    .btn:hover::before { transform:scaleX(1); }
+    .btn span { position:relative; z-index:1; }
+    .btn-next { color:var(--c1); border-color:var(--c1); }
+    .btn-next::before { background:var(--c1); }
+    .btn-next:hover   { color:#000; }
+    .btn-reset { color:var(--c2); border-color:var(--c2); }
+    .btn-reset::before { background:var(--c2); }
+    .btn-reset:hover   { color:#fff; }
+    .btn:disabled { opacity:.3; cursor:default; pointer-events:none; }
+    .progress-bar {
+      position:absolute; bottom:0; left:0; height:2px;
+      background:var(--c1); transition:width .4s;
+      box-shadow:0 0 8px var(--c1); z-index:3;
+    }
+    .group-name { font-family:Orbitron,monospace; font-size:clamp(1rem,2.2vw,1.6rem); font-weight:900; letter-spacing:.1em; z-index:2; }
+    .panel-left  .group-name { color:var(--ca); text-shadow:0 0 15px var(--ca); }
+    .panel-right .group-name { color:var(--cb); text-shadow:0 0 15px var(--cb); }
+    .score-display { font-family:Orbitron,monospace; font-size:clamp(2.5rem,5vw,4.5rem); font-weight:900; z-index:2; line-height:1; }
+    .panel-left  .score-display { color:var(--ca); text-shadow:0 0 25px var(--ca),0 0 50px rgba(0,255,136,.3); }
+    .panel-right .score-display { color:var(--cb); text-shadow:0 0 25px var(--cb),0 0 50px rgba(255,107,53,.3); }
+    .score-label { font-family:Orbitron,monospace; font-size:.55rem; letter-spacing:.4em; color:rgba(255,255,255,.25); z-index:2; }
+    .choices { display:grid; grid-template-columns:1fr 1fr; gap:.6rem; width:100%; max-width:300px; z-index:2; }
+    .choice-btn {
+      font-family:Orbitron,monospace; font-size:clamp(1rem,1.8vw,1.3rem);
+      font-weight:900; padding:.65rem .5rem; border:1px solid; cursor:pointer;
+      text-transform:uppercase; transition:all .2s; letter-spacing:.1em; background:transparent;
+    }
+    .panel-left  .choice-btn { color:var(--ca); border-color:rgba(0,255,136,.3); background:rgba(0,255,136,.04); }
+    .panel-right .choice-btn { color:var(--cb); border-color:rgba(255,107,53,.3); background:rgba(255,107,53,.04); }
+    .panel-left  .choice-btn:hover:not(:disabled) { background:rgba(0,255,136,.15); border-color:var(--ca); transform:scale(1.05); }
+    .panel-right .choice-btn:hover:not(:disabled) { background:rgba(255,107,53,.15); border-color:var(--cb); transform:scale(1.05); }
+    .choice-btn:disabled { cursor:default; opacity:.3; }
+    .panel-left  .choice-btn.flash-correct { background:var(--ca)!important; color:#000!important; border-color:var(--ca)!important; animation:flashBtn .5s ease; }
+    .panel-right .choice-btn.flash-correct { background:var(--cb)!important; color:#000!important; border-color:var(--cb)!important; animation:flashBtn .5s ease; }
+    .choice-btn.flash-wrong { animation:shake .3s ease; background:rgba(255,68,68,.2)!important; border-color:#ff4444!important; color:#ff4444!important; }
+    @keyframes flashBtn { 0%,100%{transform:scale(1)} 50%{transform:scale(1.1)} }
+    @keyframes shake    { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-5px)} 75%{transform:translateX(5px)} }
+    .pt-popup {
+      position:absolute; font-family:Orbitron,monospace; font-size:1.8rem;
+      font-weight:900; z-index:20; pointer-events:none; opacity:0;
+      top:50%; left:50%; transform:translate(-50%,-50%);
+    }
+    .panel-left  .pt-popup { color:var(--ca); text-shadow:0 0 20px var(--ca); }
+    .panel-right .pt-popup { color:var(--cb); text-shadow:0 0 20px var(--cb); }
+    .winner-overlay {
+      position:fixed; inset:0; background:rgba(5,5,16,.95); z-index:1000;
+      display:none; flex-direction:column; align-items:center; justify-content:center; gap:1.5rem;
+    }
+    .winner-overlay.show { display:flex; }
+    .winner-title { font-family:Orbitron,monospace; font-size:clamp(.8rem,2vw,1.2rem); letter-spacing:.4em; color:rgba(255,255,255,.35); }
+    .winner-name  { font-family:Orbitron,monospace; font-size:clamp(2.5rem,7vw,5rem); font-weight:900; animation:wpulse 1s ease-in-out infinite alternate; text-align:center; }
+    .winner-score-txt { font-family:Orbitron,monospace; font-size:.9rem; letter-spacing:.4em; color:rgba(255,255,255,.4); }
+    @keyframes wpulse { from{transform:scale(1)} to{transform:scale(1.04)} }
+    #loadingScreen {
+      position:fixed; inset:0; background:var(--bg); z-index:2000;
+      display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1.4rem;
+    }
+    #loadingScreen.hide { display:none; }
+    .loading-text { font-family:Orbitron,monospace; font-size:1rem; letter-spacing:.4em; color:var(--c1); animation:blink 1s infinite; }
+    .loading-bar-wrap { width:260px; height:3px; background:rgba(0,255,240,.1); }
+    .loading-bar-fill { height:100%; background:var(--c1); box-shadow:0 0 8px var(--c1); animation:fillBar 1.8s ease-in-out infinite; }
+    .loading-err { font-family:Orbitron,monospace; font-size:.72rem; letter-spacing:.15em; color:#ff4444; text-align:center; max-width:360px; line-height:1.7; display:none; }
+    @keyframes blink   { 0%,100%{opacity:1} 50%{opacity:.3} }
+    @keyframes fillBar { 0%{width:0%} 60%{width:80%} 100%{width:95%} }
+  </style>
+</head>
+<body>
+
+<div id="loadingScreen">
+  <div class="loading-text">MEMUAT SOAL...</div>
+  <div class="loading-bar-wrap"><div class="loading-bar-fill"></div></div>
+  <div class="loading-err" id="loadErr"></div>
+</div>
+
+<div class="row-top" id="rowTop">
+  <canvas id="c1"></canvas>
+  <div class="scan-line"></div>
+  <div class="corner tl"></div><div class="corner tr"></div>
+  <div class="corner bl"></div><div class="corner br"></div>
+  <div class="panel-label">KUIS IPA <span>// SOAL PILIHAN GANDA</span></div>
+  <div class="progress-bar" id="progressBar" style="width:0%"></div>
+  <div class="q-num" id="qNum">SOAL — / —</div>
+  <div class="q-body">
+    <img id="qImage" class="q-image" src="" alt="" style="display:none" />
+    <div class="q-text" id="qText">—</div>
+  </div>
+  <div class="options-grid" id="optionsDisplay"></div>
+  <div class="feedback" id="feedback"></div>
+  <div class="top-controls">
+    <button class="btn btn-next" id="btnNext" disabled><span>→ Soal Berikutnya</span></button>
+    <button class="btn btn-reset" onclick="resetGame()"><span>↶ Reset</span></button>
+  </div>
+</div>
+
+<div class="row-bottom">
+  <div class="panel-left">
+    <canvas id="c2"></canvas>
+    <div class="corner tl"></div><div class="corner tr"></div>
+    <div class="corner bl"></div><div class="corner br"></div>
+    <div class="panel-label">PANEL <span>02</span></div>
+    <div class="group-name">GRUP A</div>
+    <div class="score-display" id="scoreA">0</div>
+    <div class="score-label">POIN</div>
+    <div class="choices" id="choicesA">
+      <button class="choice-btn" onclick="answer('A','A')">A</button>
+      <button class="choice-btn" onclick="answer('A','B')">B</button>
+      <button class="choice-btn" onclick="answer('A','C')">C</button>
+      <button class="choice-btn" onclick="answer('A','D')">D</button>
+    </div>
+    <div class="pt-popup" id="popupA">+10</div>
+  </div>
+  <div class="panel-right">
+    <canvas id="c3"></canvas>
+    <div class="corner tl"></div><div class="corner tr"></div>
+    <div class="corner bl"></div><div class="corner br"></div>
+    <div class="panel-label">PANEL <span>03</span></div>
+    <div class="group-name">GRUP B</div>
+    <div class="score-display" id="scoreB">0</div>
+    <div class="score-label">POIN</div>
+    <div class="choices" id="choicesB">
+      <button class="choice-btn" onclick="answer('B','A')">A</button>
+      <button class="choice-btn" onclick="answer('B','B')">B</button>
+      <button class="choice-btn" onclick="answer('B','C')">C</button>
+      <button class="choice-btn" onclick="answer('B','D')">D</button>
+    </div>
+    <div class="pt-popup" id="popupB">+10</div>
+  </div>
+</div>
+
+<div class="winner-overlay" id="winnerOverlay">
+  <div class="winner-title">🏆 KUIS IPA SELESAI 🏆</div>
+  <div class="winner-name" id="winnerName"></div>
+  <div class="winner-score-txt" id="winnerScore"></div>
+  <button class="btn btn-reset" onclick="resetGame()" style="margin-top:1.5rem"><span>↶ Main Lagi</span></button>
+</div>
+
+<script>
+// ============================================================
+// GAS URL — ganti jika deployment berubah
+// ============================================================
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbwIijPZfk6_nbUAcrCkkAU9n7p9f0aT9tC1GFXxoaLzmkVD3YAlJlXC2g6FnmH4vYgVbQ/exec';
+
+// ============================================================
+// STATE
+// ============================================================
+let soalData = [];
+let cur = 0, sA = 0, sB = 0;
+let answeredA = false, answeredB = false;
+
+// ============================================================
+// FETCH SOAL
+// ============================================================
+async function fetchSoal() {
+  const errEl = document.getElementById('loadErr');
+  try {
+    const resp = await fetch(GAS_URL + '?action=json', { redirect: 'follow' });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const text = await resp.text();
+    let data;
+    try { data = JSON.parse(text); }
+    catch(_) { throw new Error('Respons bukan JSON. Pastikan GAS di-deploy dengan benar.'); }
+    if (data.error) throw new Error(data.error);
+    if (!Array.isArray(data) || data.length === 0) throw new Error('Sheet kosong atau format data salah.');
+    soalData = data;
+    document.getElementById('loadingScreen').classList.add('hide');
+    initGame();
+  } catch(e) {
+    errEl.textContent = '✗ GAGAL MEMUAT: ' + e.message;
+    errEl.style.display = 'block';
+    document.querySelector('.loading-text').style.display = 'none';
+    document.querySelector('.loading-bar-wrap').style.display = 'none';
+  }
+}
+
+// ============================================================
+// INIT
+// ============================================================
+function initGame() {
+  cur = sA = sB = 0;
+  document.getElementById('scoreA').textContent = '0';
+  document.getElementById('scoreB').textContent = '0';
+  document.getElementById('winnerOverlay').classList.remove('show');
+  document.getElementById('btnNext').addEventListener('click', nextQuestion);
+  initParticles();
+  showQuestion();
+}
+
+// ============================================================
+// QUIZ LOGIC
+// ============================================================
+function showQuestion() {
+  const s = soalData[cur];
+  document.getElementById('qNum').textContent = `SOAL ${cur+1} / ${soalData.length}`;
+  document.getElementById('qText').textContent = s.soal;
+  document.getElementById('progressBar').style.width = (cur / soalData.length * 100) + '%';
+  document.getElementById('feedback').textContent = '';
+  document.getElementById('feedback').className = 'feedback';
+  document.getElementById('btnNext').disabled = true;
+  answeredA = answeredB = false;
+
+  const img = document.getElementById('qImage');
+  if (s.gambar && s.gambar.startsWith('data:')) {
+    img.src = s.gambar; img.style.display = 'block';
+    img.onerror = () => { img.style.display = 'none'; };
+  } else { img.src = ''; img.style.display = 'none'; }
+
+  document.getElementById('rowTop').style.background = s.background || '';
+
+  const keys = ['A','B','C','D'];
+  const opts  = [s.opsiA, s.opsiB, s.opsiC, s.opsiD];
+  document.getElementById('optionsDisplay').innerHTML = keys
+    .map((k,i) => `<div class="option-display" id="opt${k}"><span class="opt-key">${k}.</span>${opts[i]}</div>`)
+    .join('');
+
+  ['A','B'].forEach(g => {
+    document.querySelectorAll(`#choices${g} .choice-btn`).forEach(b => {
+      b.disabled = false; b.className = 'choice-btn';
+    });
+  });
+}
+
+function answer(group, choice) {
+  if (group === 'A' && answeredA) return;
+  if (group === 'B' && answeredB) return;
+  const correct = soalData[cur].jawaban;
+  const btns    = document.querySelectorAll(`#choices${group} .choice-btn`);
+  const idx     = ['A','B','C','D'].indexOf(choice);
+  if (group === 'A') answeredA = true; else answeredB = true;
+  btns.forEach(b => b.disabled = true);
+  if (choice === correct) {
+    btns[idx].classList.add('flash-correct');
+    lockGroup(group === 'A' ? 'B' : 'A');
+    if (group === 'A') { answeredB = true; sA += 10; document.getElementById('scoreA').textContent = sA; popup('popupA'); }
+    else               { answeredA = true; sB += 10; document.getElementById('scoreB').textContent = sB; popup('popupB'); }
+    document.getElementById('feedback').textContent = `✓ GRUP ${group} BENAR! +10 POIN`;
+    document.getElementById('feedback').className = 'feedback correct';
+    reveal(correct);
+    document.getElementById('btnNext').disabled = false;
+  } else {
+    btns[idx].classList.add('flash-wrong');
+    if (answeredA && answeredB) {
+      document.getElementById('feedback').textContent = `✗ Kedua grup salah! Jawaban: ${correct}`;
+      document.getElementById('feedback').className = 'feedback wrong';
+      reveal(correct);
+      document.getElementById('btnNext').disabled = false;
+    } else {
+      document.getElementById('feedback').textContent = `✗ GRUP ${group} SALAH! Giliran grup lain...`;
+      document.getElementById('feedback').className = 'feedback wrong';
+    }
+  }
+}
+
+function lockGroup(g) {
+  document.querySelectorAll(`#choices${g} .choice-btn`).forEach(b => b.disabled = true);
+}
+
+function reveal(correct) {
+  ['A','B','C','D'].forEach(k => {
+    document.getElementById(`opt${k}`).classList.add(k === correct ? 'correct-ans' : 'wrong-ans');
+  });
+}
+
+function popup(id) {
+  const el = document.getElementById(id);
+  el.textContent = '+10';
+  el.style.cssText = 'opacity:1;top:50%;left:50%;transform:translate(-50%,-50%);transition:none';
+  requestAnimationFrame(() => {
+    el.style.transition = 'all 1.2s ease';
+    el.style.opacity = '0';
+    el.style.top = '25%';
+  });
+}
+
+function nextQuestion() {
+  cur++;
+  if (cur >= soalData.length) { showWinner(); return; }
+  showQuestion();
+}
+
+function showWinner() {
+  document.getElementById('progressBar').style.width = '100%';
+  document.getElementById('winnerOverlay').classList.add('show');
+  let name, score, color;
+  if      (sA > sB) { name = '🥗 GRUP A MENANG!'; score = sA + ' vs ' + sB + ' poin'; color = '#00ff88'; }
+  else if (sB > sA) { name = '🍕 GRUP B MENANG!'; score = sB + ' vs ' + sA + ' poin'; color = '#ff6b35'; }
+  else              { name = '😊 SERI!';           score = sA + ' - ' + sB + ' poin'; color = '#ffe600'; }
+  const wn = document.getElementById('winnerName');
+  wn.textContent = name; wn.style.color = color;
+  wn.style.textShadow = `0 0 40px ${color}`;
+  document.getElementById('winnerScore').textContent = 'SKOR AKHIR: ' + score;
+}
+
+function resetGame() {
+  cur = sA = sB = 0;
+  document.getElementById('scoreA').textContent = '0';
+  document.getElementById('scoreB').textContent = '0';
+  document.getElementById('winnerOverlay').classList.remove('show');
+  showQuestion();
+}
+
+// ============================================================
+// PARTICLES
+// ============================================================
+function initParticles() {
+  function make(id, color, n) {
+    const c = document.getElementById(id), ctx = c.getContext('2d');
+    function resize() { c.width = c.offsetWidth; c.height = c.offsetHeight; }
+    resize(); window.addEventListener('resize', resize);
+    const pts = Array.from({length:n}, () => ({
+      x:Math.random()*c.width, y:Math.random()*c.height,
+      vx:(Math.random()-.5)*.3, vy:(Math.random()-.5)*.3, rad:Math.random()+.3
+    }));
+    (function draw() {
+      ctx.clearRect(0,0,c.width,c.height);
+      pts.forEach(p => {
+        p.x+=p.vx; p.y+=p.vy;
+        if(p.x<0||p.x>c.width) p.vx*=-1;
+        if(p.y<0||p.y>c.height) p.vy*=-1;
+        ctx.beginPath(); ctx.arc(p.x,p.y,p.rad,0,Math.PI*2); ctx.fillStyle=color; ctx.fill();
+      });
+      pts.forEach((a,i) => pts.slice(i+1).forEach(b => {
+        const d=Math.hypot(a.x-b.x,a.y-b.y);
+        if(d<90){ ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y);
+          ctx.strokeStyle=`rgba(0,255,240,${.1*(1-d/90)})`; ctx.lineWidth=.5; ctx.stroke(); }
+      }));
+      requestAnimationFrame(draw);
+    })();
+  }
+  make('c1','rgba(0,255,240,.45)',50);
+  make('c2','rgba(0,255,136,.5)',25);
+  make('c3','rgba(255,107,53,.5)',25);
+}
+
+// ============================================================
+// START
+// ============================================================
+fetchSoal();
+</script>
+</body>
+</html>
