@@ -175,6 +175,34 @@
     .loading-err { font-family:Orbitron,monospace; font-size:.72rem; letter-spacing:.15em; color:#ff4444; text-align:center; max-width:360px; line-height:1.7; display:none; }
     @keyframes blink   { 0%,100%{opacity:1} 50%{opacity:.3} }
     @keyframes fillBar { 0%{width:0%} 60%{width:80%} 100%{width:95%} }
+
+    #materiScreen {
+      position:fixed; inset:0; background:var(--bg); z-index:1999;
+      display:none; flex-direction:column; align-items:center; justify-content:center; gap:1.6rem;
+      padding:1.5rem; text-align:center;
+    }
+    #materiScreen.show { display:flex; }
+    .materi-title {
+      font-family:Orbitron,monospace; font-size:clamp(1rem,2.4vw,1.6rem);
+      letter-spacing:.35em; color:var(--c1); text-shadow:0 0 15px var(--c1);
+    }
+    .materi-sub {
+      font-family:Rajdhani,sans-serif; font-size:.9rem; letter-spacing:.05em;
+      color:rgba(255,255,255,.5); max-width:420px;
+    }
+    #materiSelect {
+      font-family:Orbitron,monospace; font-size:.85rem; letter-spacing:.1em;
+      background:rgba(0,255,240,.05); color:#fff; border:1px solid var(--c1);
+      padding:.7rem 1.2rem; min-width:260px; max-width:90vw; text-transform:uppercase;
+    }
+    #materiSelect option { background:#050510; color:#fff; }
+    .btn-start { color:var(--c3); border-color:var(--c3); }
+    .btn-start::before { background:var(--c3); }
+    .btn-start:hover { color:#000; }
+    .materi-err {
+      font-family:Orbitron,monospace; font-size:.7rem; letter-spacing:.1em;
+      color:#ff4444; max-width:360px; line-height:1.6; display:none;
+    }
   </style>
 </head>
 <body>
@@ -183,6 +211,14 @@
   <div class="loading-text">MEMUAT SOAL...</div>
   <div class="loading-bar-wrap"><div class="loading-bar-fill"></div></div>
   <div class="loading-err" id="loadErr"></div>
+</div>
+
+<div id="materiScreen">
+  <div class="materi-title">⚡ PILIH MATERI ⚡</div>
+  <div class="materi-sub">Pilih materi soal yang ingin dimainkan, lalu tekan mulai.</div>
+  <select id="materiSelect"></select>
+  <button class="btn btn-start" id="btnStartMateri"><span>▶ Mulai Kuis</span></button>
+  <div class="materi-err" id="materiErr"></div>
 </div>
 
 <div class="row-top" id="rowTop">
@@ -261,21 +297,60 @@ let cur = 0, sA = 0, sB = 0;
 let answeredA = false, answeredB = false;
 
 // ============================================================
-// FETCH SOAL
+// FETCH DAFTAR MATERI (untuk form pilihan)
 // ============================================================
-async function fetchSoal() {
+async function fetchMateriList() {
   const errEl = document.getElementById('loadErr');
   try {
-    const resp = await fetch(GAS_URL + '?action=json', { redirect: 'follow' });
+    const resp = await fetch(GAS_URL + '?action=materi', { redirect: 'follow' });
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
     const text = await resp.text();
     let data;
     try { data = JSON.parse(text); }
     catch(_) { throw new Error('Respons bukan JSON. Pastikan GAS di-deploy dengan benar.'); }
     if (data.error) throw new Error(data.error);
-    if (!Array.isArray(data) || data.length === 0) throw new Error('Sheet kosong atau format data salah.');
-    soalData = data;
+    if (!Array.isArray(data)) throw new Error('Format daftar materi salah.');
+
+    const sel = document.getElementById('materiSelect');
+    sel.innerHTML = '<option value="">-- SEMUA MATERI --</option>' +
+      data.map(m => `<option value="${m}">${m}</option>`).join('');
+
     document.getElementById('loadingScreen').classList.add('hide');
+    document.getElementById('materiScreen').classList.add('show');
+  } catch(e) {
+    errEl.textContent = '✗ GAGAL MEMUAT DAFTAR MATERI: ' + e.message;
+    errEl.style.display = 'block';
+    document.querySelector('.loading-text').style.display = 'none';
+    document.querySelector('.loading-bar-wrap').style.display = 'none';
+  }
+}
+
+// ============================================================
+// FETCH SOAL (sesuai materi terpilih)
+// ============================================================
+async function fetchSoal(materi) {
+  document.getElementById('materiScreen').classList.remove('show');
+  const loadingScreen = document.getElementById('loadingScreen');
+  document.querySelector('.loading-text').textContent = 'MEMUAT SOAL...';
+  document.querySelector('.loading-text').style.display = '';
+  document.querySelector('.loading-bar-wrap').style.display = '';
+  const errEl = document.getElementById('loadErr');
+  errEl.style.display = 'none';
+  loadingScreen.classList.remove('hide');
+
+  try {
+    let url = GAS_URL + '?action=json';
+    if (materi) url += '&materi=' + encodeURIComponent(materi);
+    const resp = await fetch(url, { redirect: 'follow' });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const text = await resp.text();
+    let data;
+    try { data = JSON.parse(text); }
+    catch(_) { throw new Error('Respons bukan JSON. Pastikan GAS di-deploy dengan benar.'); }
+    if (data.error) throw new Error(data.error);
+    if (!Array.isArray(data) || data.length === 0) throw new Error('Tidak ada soal untuk materi ini.');
+    soalData = data;
+    loadingScreen.classList.add('hide');
     initGame();
   } catch(e) {
     errEl.textContent = '✗ GAGAL MEMUAT: ' + e.message;
@@ -447,7 +522,11 @@ function initParticles() {
 // ============================================================
 // START
 // ============================================================
-fetchSoal();
+document.getElementById('btnStartMateri').addEventListener('click', () => {
+  const materi = document.getElementById('materiSelect').value;
+  fetchSoal(materi);
+});
+fetchMateriList();
 </script>
 </body>
 </html>
